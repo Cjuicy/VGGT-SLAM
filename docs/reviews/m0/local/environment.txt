@@ -1,0 +1,20 @@
+M0 local verification environment
+date=2026-06-11
+platform=macOS
+conda_environment=vggt-dem
+python=3.11.15
+numpy=1.26.4
+pydantic=2.13.4
+evo=1.36.5
+torch=2.11.0
+gtsam=4.2.1
+cuda_available=false
+mps_built=true
+mps_available=false
+gtsam.SL4=false
+gtsam.PriorFactorSL4=false
+gtsam.BetweenFactorSL4=false
+git_commit=007f5131cdb837032d1a1318cd010f0398617611
+git_loose_object_count=327
+git_loose_object_size=10.75 MiB
+git_directory_size=11M
