@@ -7,6 +7,7 @@ name = "vggt-slam-pp-reproduction"
 version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 dependencies = [
+  "evo>=1.36,<2",
   "numpy>=1.26,<3",
   "pydantic>=2.7,<3",
   "PyYAML>=6,<7",
