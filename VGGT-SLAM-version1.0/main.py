@@ -13,7 +13,14 @@ import vggt_slam.slam_utils as utils
 from vggt_slam.solver import Solver
 
 from vggt.models.vggt import VGGT
+from vggt_slam_pp.adapters.export_session import ExportSession
 from vggt_slam_pp.contracts.runtime import RunIdentity
+from vggt_slam_pp.io.checksums import sha256_file
+
+
+BASELINE_ARCHIVE_SHA256 = (
+    "f34897e5745c6380dfd819bf87c8a016aebb8e9ffe7a0025304015fa7b0f0411"
+)
 
 
 parser = argparse.ArgumentParser(description="VGGT-SLAM demo")
@@ -65,7 +72,7 @@ def main():
     device = resolve_device(args.device)
     print(f"Using device: {device}")
 
-    RunIdentity(
+    run_identity = RunIdentity(
         run_id=args.run_id,
         solver_mode="baseline_sim3_compat" if args.use_sim3 else "baseline_sl4",
         run_purpose=args.run_purpose,
@@ -97,6 +104,15 @@ def main():
 
     model.eval()
     model = model.to(device)
+
+    export_session = None
+    if args.export_submaps_dir is not None:
+        export_session = ExportSession(
+            output_root=Path(args.export_submaps_dir),
+            run=run_identity,
+            baseline_sha256=BASELINE_ARCHIVE_SHA256,
+            weight_sha256=sha256_file(vggt_weight),
+        )
 
     # Use the provided image folder path
     print(f"Loading images from {args.image_folder}...")
@@ -131,6 +147,17 @@ def main():
             solver.graph.optimize()
             solver.map.update_submap_homographies(solver.graph)
 
+            if export_session is not None:
+                loop_sources = tuple(
+                    loop.detected_submap_id
+                    for loop in predictions["detected_loops"]
+                )
+                export_session.export_latest_submap(
+                    solver.map.get_latest_submap(),
+                    loop_sources=loop_sources,
+                )
+                export_session.export_graph_state(solver.map, solver.graph)
+
             loop_closure_detected = len(predictions["detected_loops"]) > 0
             if args.vis_map:
                 if loop_closure_detected:
@@ -143,6 +170,8 @@ def main():
         
     print("Total number of submaps in map", solver.map.get_num_submaps())
     print("Total number of loop closures in map", solver.graph.get_num_loops())
+    if export_session is not None:
+        export_session.finalize(solver.map, solver.graph)
 
     if not args.vis_map:
         # just show the map after all submaps have been processed
