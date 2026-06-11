@@ -1,0 +1,14 @@
+runtime_id: local_macos
+assets:
+  vggt_weight:
+    path: weights/model.pt
+    sha256: d15bf50a8615c8225ed48b51ea5cac673d82442ec0309036df555a053253afe0
+  salad_weight:
+    path: weights/dino_salad.ckpt
+    sha256: 6b3f1720954293e83da6966c5cfcfc6713200d7fefadcca76fc51aeb80b3cada
+  dinov2_weight:
+    path: weights/dinov2_vitb14_pretrain.pth
+    sha256: 0b8b82f85de91b424aded121c7e1dcc2b7bc6d0adeea651bf73a13307fad8c73
+capabilities:
+  require_cuda: false
+  solver_mode: baseline_sim3_compat
