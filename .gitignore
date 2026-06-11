@@ -1,0 +1,56 @@
+# Local model weights and datasets are provisioned separately on each machine.
+/weights/
+/data/
+
+# Generated pipeline outputs and review artifacts that may contain large arrays.
+/artifacts/
+/outputs/
+/logs/
+/debug*/
+/.cache/
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+/**/__pycache__/
+*.py[cod]
+
+# Local Codex/Superpowers runtime state.
+/.superpowers/
+/.agents/
+/.codex/
+
+# Source archives and raw paper binaries are not Git transport artifacts.
+/*.zip
+/*.tar
+/*.tar.gz
+/paper/*.pdf
+
+# Baseline demo data and locally built third-party dependencies.
+/VGGT-SLAM-version1.0*/office_loop/
+/VGGT-SLAM-version1.0*/office_loop.zip
+/VGGT-SLAM-version1.0*/gtsam/
+/VGGT-SLAM-version1.0*/gtsam_with_sl4/
+/VGGT-SLAM-version1.0*/salad/
+/VGGT-SLAM-version1.0*/vggt/
+/VGGT-SLAM-version1.0*/assets/*.gif
+
+# Common heavyweight ML artifacts, wherever they are accidentally placed.
+*.ckpt
+*.onnx
+*.pt
+*.pth
+*.safetensors
+
+# Local environments, IDE state, and operating-system metadata.
+/.venv/
+/venv/
+/env/
+/.worktrees/
+.DS_Store
+.idea/
+.vscode/
+
+# Keep external source manifests in Git, but not imported repositories.
+/external_sources/*
+!/external_sources/README.md
+!/external_sources/manifest.yaml
