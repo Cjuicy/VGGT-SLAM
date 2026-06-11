@@ -1,0 +1,24 @@
+schema_version: 1
+sources:
+  vggt:
+    path: external_sources/vggt
+    upstream: https://github.com/facebookresearch/vggt.git
+    commit: null
+    license_reviewed: false
+    status: user_source_required
+  salad:
+    path: external_sources/salad
+    upstream: https://github.com/serizba/salad.git
+    commit: null
+    license_reviewed: false
+    status: user_source_required
+  gtsam_with_sl4:
+    path: external_sources/gtsam_with_sl4
+    upstream: null
+    commit: null
+    license_reviewed: false
+    required_python_symbols:
+      - SL4
+      - PriorFactorSL4
+      - BetweenFactorSL4
+    status: user_source_required
