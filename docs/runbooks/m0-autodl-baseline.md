@@ -3,6 +3,70 @@
 所有命令从仓库根执行。先通过 Git 拉取小文件，再把大文件放到完全相同的
 相对路径。
 
+## 0. 通过 HTTPS 拉取并保留提交能力
+
+AutoDL 不需要预先配置 SSH。项目仓库使用 HTTPS 拉取，推送时使用 GitHub
+Fine-grained Personal Access Token。
+
+### 0.1 创建最小权限 Token
+
+打开 [GitHub Fine-grained personal access tokens](https://github.com/settings/personal-access-tokens/new)，
+创建短期 Token：
+
+- Repository access 只选择 `Cjuicy/VGGT-SLAM`。
+- Repository permissions 中 `Contents` 设为 `Read and write`。
+- 设置较短的有效期，M0 云端验证结束后撤销。
+
+Token 不得写入命令、URL、脚本、YAML、Git remote 或审核文档。
+
+### 0.2 克隆 M0 分支
+
+```bash
+git clone --branch codex/m0-reproduction \
+  https://github.com/Cjuicy/VGGT-SLAM.git
+cd VGGT-SLAM
+
+git switch -c autodl/m0-validation
+git config user.name "Cjuicy"
+git config user.email "替换为你的 GitHub 邮箱"
+```
+
+公开仓库的克隆不要求 Token。若仓库以后设为私有，Git 会提示输入：
+
+```text
+Username: Cjuicy
+Password: 粘贴 Fine-grained Token
+```
+
+这里的 `Password` 是 Token，不是 GitHub 登录密码。终端输入时不会显示字符。
+
+### 0.3 提交云端审核证据
+
+权重、数据、外部源码、NPZ 缓存和完整日志均已被 `.gitignore` 排除。只提交
+`docs/reviews/m0/<run-id>/` 中的小型环境、命令、ATE 摘要和偏差说明：
+
+```bash
+git status --short
+git add docs/reviews/m0
+git commit -m "docs: record AutoDL M0 validation"
+git push -u origin autodl/m0-validation
+```
+
+第一次推送时按提示输入 GitHub 用户名和 Token。需要减少重复输入时，可以
+临时启用一小时的内存凭据缓存：
+
+```bash
+git config credential.helper "cache --timeout=3600"
+```
+
+验证完成后清理缓存并在 GitHub 撤销 Token：
+
+```bash
+git credential-cache exit
+```
+
+不要执行 `git add -f` 绕过大文件忽略规则。
+
 ## 文件放置
 
 ```text
@@ -15,6 +79,10 @@ external_sources/vggt/
 external_sources/salad/
 external_sources/gtsam_with_sl4/
 ```
+
+外部源码的官方链接、核验分支和下载命令见
+[`external_sources/README.md`](../../external_sources/README.md)。这些目录不通过
+项目 Git 仓库传输。
 
 本地已有压缩包时可在云端解压：
 

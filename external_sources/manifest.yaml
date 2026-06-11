@@ -3,18 +3,27 @@ sources:
   vggt:
     path: external_sources/vggt
     upstream: https://github.com/facebookresearch/vggt.git
+    browser_url: https://github.com/facebookresearch/vggt
+    ref: main
+    verified_remote_head: a288dd0f14786c93483e45524328726ab7b1b4ce
     commit: null
     license_reviewed: false
     status: user_source_required
   salad:
     path: external_sources/salad
-    upstream: https://github.com/serizba/salad.git
+    upstream: https://github.com/Dominic101/salad.git
+    browser_url: https://github.com/Dominic101/salad
+    ref: main
+    verified_remote_head: 33ca9c0ca1e10cbb21efc0d6a5fcb6d45688e42d
     commit: null
     license_reviewed: false
     status: user_source_required
   gtsam_with_sl4:
     path: external_sources/gtsam_with_sl4
-    upstream: null
+    upstream: https://github.com/borglab/gtsam.git
+    browser_url: https://github.com/borglab/gtsam/tree/develop
+    ref: develop
+    verified_remote_head: a71299d15262daf9bdab6c81362da91ce8c3a63a
     commit: null
     license_reviewed: false
     required_python_symbols:
