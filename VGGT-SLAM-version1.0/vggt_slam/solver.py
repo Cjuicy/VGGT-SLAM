@@ -3,6 +3,9 @@ import cv2
 import gtsam
 import matplotlib.pyplot as plt
 import torch
+from contextlib import nullcontext
+from pathlib import Path
+from typing import Dict, List
 import open3d as o3d
 import viser
 import viser.transforms as viser_tf
@@ -143,7 +146,10 @@ class Solver:
         use_sim3: bool = False,
         gradio_mode: bool = False,
         vis_stride: int = 1,         # represents how much the visualized point clouds are sparsified
-        vis_point_size: float = 0.001):
+        vis_point_size: float = 0.001,
+        device: torch.device = torch.device("cpu"),
+        enable_loop_closure: bool = True,
+        salad_checkpoint: Path | None = None):
         
         self.init_conf_threshold = init_conf_threshold
         self.use_point_map = use_point_map
@@ -157,13 +163,23 @@ class Solver:
         self.flow_tracker = FrameTracker()
         self.map = GraphMap()
         self.use_sim3 = use_sim3
+        self.device = torch.device(device)
+        self.enable_loop_closure = enable_loop_closure
         if self.use_sim3:
             from vggt_slam.graph_se3 import PoseGraph
         else:
             from vggt_slam.graph import PoseGraph
         self.graph = PoseGraph()
 
-        self.image_retrieval = ImageRetrieval()
+        if self.enable_loop_closure:
+            if salad_checkpoint is None:
+                raise ValueError("salad_checkpoint is required when loop closure is enabled")
+            self.image_retrieval = ImageRetrieval(
+                checkpoint_path=salad_checkpoint,
+                device=self.device,
+            )
+        else:
+            self.image_retrieval = None
         self.current_working_submap = None
 
         self.first_edge = True
@@ -396,12 +412,20 @@ class Solver:
         return pixel_coords
 
     def run_predictions(self, image_names, model, max_loops):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        images = load_and_preprocess_images(image_names).to(device)
+        images = load_and_preprocess_images(image_names).to(self.device)
         print(f"Preprocessed images shape: {images.shape}")
 
-        # print("Running inference...")
-        dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+        if self.device.type == "cuda":
+            dtype = (
+                torch.bfloat16
+                if torch.cuda.get_device_capability(self.device)[0] >= 8
+                else torch.float16
+            )
+            inference_context = torch.autocast("cuda", dtype=dtype)
+        elif self.device.type == "mps":
+            inference_context = torch.autocast("mps", dtype=torch.float16)
+        else:
+            inference_context = nullcontext()
 
         # Check for loop closures
         new_pcd_num = self.map.get_largest_key() + 1
@@ -409,10 +433,17 @@ class Solver:
         # new_submap.add_all_frames(images)
         new_submap.add_all_frames(images)
         new_submap.set_frame_ids(image_names)
-        new_submap.set_all_retrieval_vectors(self.image_retrieval.get_all_submap_embeddings(new_submap))
-
-        # TODO implement this
-        detected_loops = self.image_retrieval.find_loop_closures(self.map, new_submap, max_loop_closures=max_loops)
+        if self.enable_loop_closure:
+            new_submap.set_all_retrieval_vectors(
+                self.image_retrieval.get_all_submap_embeddings(new_submap)
+            )
+            detected_loops = self.image_retrieval.find_loop_closures(
+                self.map,
+                new_submap,
+                max_loop_closures=max_loops,
+            )
+        else:
+            detected_loops = []
         if len(detected_loops) > 0:
             print(colored("detected_loops", "yellow"), detected_loops)
         retrieved_frames = self.map.get_frames_from_loops(detected_loops)
@@ -430,7 +461,7 @@ class Solver:
         self.current_working_submap = new_submap
 
         with torch.no_grad():
-            with torch.cuda.amp.autocast(dtype=dtype):
+            with inference_context:
                 predictions = model(images)
 
         extrinsic, intrinsic = pose_encoding_to_extri_intri(predictions["pose_enc"], images.shape[-2:])

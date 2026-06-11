@@ -5,12 +5,7 @@ from PIL import Image
 import heapq
 from typing import NamedTuple
 import torchvision.transforms as T
-import os
-
-from salad.eval import load_model # load salad
-
-
-device = 'cuda'
+from pathlib import Path
 
 tensor_transform = T.ToPILImage()
 denormalize = T.Normalize(mean=[-1, -1, -1], std=[2, 2, 2])
@@ -51,24 +46,29 @@ class LoopMatchQueue:
         
 
 class ImageRetrieval:
-    def __init__(self, input_size=224):
-        torch.hub.load("serizba/salad", "dinov2_salad")
-        ckpt_pth = os.path.join(torch.hub.get_dir(), "checkpoints/dino_salad.ckpt")
-        self.model = load_model(ckpt_pth)
-        self.model.eval()
+    def __init__(self, checkpoint_path: Path, device: torch.device, input_size=224):
+        # Import lazily so max_loops=0 does not require SALAD to be installed.
+        from salad.eval import load_model
+
+        checkpoint_path = Path(checkpoint_path)
+        if not checkpoint_path.is_file():
+            raise FileNotFoundError(f"SALAD checkpoint not found: {checkpoint_path}")
+        self.device = torch.device(device)
+        self.model = load_model(str(checkpoint_path))
+        self.model.eval().to(self.device)
         self.transform = input_transform((input_size, input_size))
 
     def get_single_embeding(self, cv_img):
         with torch.no_grad():
             pil_img = self.transform(tensor_transform(cv_img))
-            return self.model(pil_img.to(device))
+            return self.model(pil_img.to(self.device))
 
     def get_batch_descriptors(self, imgs):
         # Expecting imgs to be a batch of images (B, C, H, W)
         with torch.no_grad():
             pil_imgs = [tensor_transform(img) for img in imgs]  # Convert each tensor to PIL Image
             imgs = torch.stack([self.transform(img) for img in pil_imgs])  # Apply transform and stack
-            return self.model(imgs.to(device))
+            return self.model(imgs.to(self.device))
     
     def get_all_submap_embeddings(self, submap):
         # Frames is np array of shape (S, 3, H, W)

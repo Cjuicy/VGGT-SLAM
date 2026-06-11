@@ -1,6 +1,7 @@
 import os
 import glob
 import argparse
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -12,6 +13,7 @@ import vggt_slam.slam_utils as utils
 from vggt_slam.solver import Solver
 
 from vggt.models.vggt import VGGT
+from vggt_slam_pp.contracts.runtime import RunIdentity
 
 
 parser = argparse.ArgumentParser(description="VGGT-SLAM demo")
@@ -32,6 +34,27 @@ parser.add_argument("--use_point_map", action="store_true", help="Use point map 
 parser.add_argument("--conf_threshold", type=float, default=25.0, help="Initial percentage of low-confidence points to filter out")
 parser.add_argument("--vis_stride", type=int, default=1, help="Stride interval in the 3D point cloud image for visualization. Try increasing (such as 4) to reduce lag in visualizing large maps.")
 parser.add_argument("--vis_point_size", type=float, default=0.003, help="Visualization point size")
+parser.add_argument("--vggt_weight", type=str, default="weights/model.pt", help="Local VGGT state-dict path; runtime downloads are disabled")
+parser.add_argument("--salad_checkpoint", type=str, default="weights/dino_salad.ckpt", help="Local SALAD checkpoint, required only when max_loops > 0")
+parser.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default="auto", help="Inference device; auto prefers CUDA, then MPS, then CPU")
+parser.add_argument("--export_submaps_dir", type=str, default=None, help="Optional M0 cache output directory; disabled by default")
+parser.add_argument("--run_id", type=str, default="baseline-run", help="Stable identifier recorded in M0 artifacts")
+parser.add_argument("--run_purpose", choices=("baseline_reference", "pp_frontend_bridge"), default="baseline_reference", help="Whether this is a baseline metric run or ++ front-end export")
+
+
+def resolve_device(requested_device):
+    """Resolve one explicit device and fail early when it is unavailable."""
+    if requested_device == "auto":
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
+    if requested_device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("--device cuda requested, but CUDA is unavailable")
+    if requested_device == "mps" and not torch.backends.mps.is_available():
+        raise RuntimeError("--device mps requested, but MPS is unavailable")
+    return torch.device(requested_device)
 
 def main():
     """
@@ -39,8 +62,17 @@ def main():
     """
     args = parser.parse_args()
     use_optical_flow_downsample = True
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = resolve_device(args.device)
     print(f"Using device: {device}")
+
+    RunIdentity(
+        run_id=args.run_id,
+        solver_mode="baseline_sim3_compat" if args.use_sim3 else "baseline_sl4",
+        run_purpose=args.run_purpose,
+        max_loops=args.max_loops,
+        submap_size=args.submap_size,
+        min_disparity=args.min_disparity,
+    )
 
     solver = Solver(
         init_conf_threshold=args.conf_threshold,
@@ -49,14 +81,19 @@ def main():
         gradio_mode=False,
         vis_stride = args.vis_stride,
         vis_point_size = args.vis_point_size,
+        device=device,
+        enable_loop_closure=args.max_loops > 0,
+        salad_checkpoint=Path(args.salad_checkpoint),
     )
 
     print("Initializing and loading VGGT model...")
-    # model = VGGT.from_pretrained("facebook/VGGT-1B")
-
+    vggt_weight = Path(args.vggt_weight)
+    if not vggt_weight.is_file():
+        raise FileNotFoundError(f"VGGT weight not found: {vggt_weight}")
     model = VGGT()
-    _URL = "https://huggingface.co/facebook/VGGT-1B/resolve/main/model.pt"
-    model.load_state_dict(torch.hub.load_state_dict_from_url(_URL))
+    model.load_state_dict(
+        torch.load(vggt_weight, map_location="cpu", weights_only=True)
+    )
 
     model.eval()
     model = model.to(device)
