@@ -87,3 +87,36 @@ def test_bridge_rejects_loop_sources() -> None:
             weight_sha256="b" * 64,
             loop_sources=(9,),
         )
+
+
+def test_baseline_reference_labels_appended_loop_frames() -> None:
+    source = make_baseline_submap()
+    source.pointclouds = np.concatenate(
+        [source.pointclouds, source.pointclouds[:1]],
+        axis=0,
+    )
+    source.colors = np.concatenate([source.colors, source.colors[:1]], axis=0)
+    source.conf = np.concatenate([source.conf, source.conf[:1]], axis=0)
+    source.vggt_intrinscs = np.concatenate(
+        [source.vggt_intrinscs, source.vggt_intrinscs[:1]],
+        axis=0,
+    )
+    source.poses = np.concatenate([source.poses, source.poses[:1]], axis=0)
+    run = RunIdentity(
+        run_id="baseline-loop",
+        solver_mode="baseline_sim3_compat",
+        run_purpose="baseline_reference",
+        max_loops=1,
+        submap_size=2,
+        min_disparity=50.0,
+    )
+
+    metadata, _ = adapt_submap(
+        source,
+        run=run,
+        baseline_sha256="a" * 64,
+        weight_sha256="b" * 64,
+        loop_sources=(3,),
+    )
+
+    assert metadata.frame_ids[-1] == "loop_source:3:0"

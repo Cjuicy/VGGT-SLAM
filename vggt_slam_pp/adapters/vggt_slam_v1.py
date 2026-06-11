@@ -70,11 +70,15 @@ def adapt_submap(
     camera_to_submap = _homogeneous_camera_poses(getattr(submap, "poses"))
     frame_ids = tuple(str(value) for value in getattr(submap, "frame_ids"))
 
-    if points.shape[0] != len(frame_ids):
+    loop_frame_count = points.shape[0] - len(frame_ids)
+    if loop_frame_count < 0 or loop_frame_count != len(loop_sources):
         raise ValueError(
-            "submap.frame_ids must cover every exported frame; "
-            "disable baseline loop frames for pp_frontend_bridge"
+            "exported loop frame count must match loop_sources"
         )
+    frame_ids += tuple(
+        f"loop_source:{source_submap_id}:{ordinal}"
+        for ordinal, source_submap_id in enumerate(loop_sources)
+    )
 
     arrays = SubmapArrays(
         # These are finalized fields. Do not reconstruct from raw VGGT predictions:
