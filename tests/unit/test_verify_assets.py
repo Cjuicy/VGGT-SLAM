@@ -24,6 +24,12 @@ def _write_config(path: Path, asset_path: str, sha256: str) -> None:
                         "sha256": sha256,
                     }
                 },
+                "sources": {
+                    "dinov2": {
+                        "path": "external_sources/dinov2",
+                        "entrypoint": "hubconf.py",
+                    }
+                },
                 "capabilities": {
                     "require_cuda": False,
                     "solver_mode": "baseline_sim3_compat",
@@ -40,6 +46,9 @@ def test_matching_asset_and_hash_pass_without_network(
     asset = tmp_path / "weights" / "model.pt"
     asset.parent.mkdir()
     asset.write_bytes(b"offline-weight")
+    source_entry = tmp_path / "external_sources" / "dinov2" / "hubconf.py"
+    source_entry.parent.mkdir(parents=True)
+    source_entry.write_text("", encoding="utf-8")
     config = tmp_path / "runtime.yaml"
     _write_config(config, "weights/model.pt", hashlib.sha256(asset.read_bytes()).hexdigest())
 
@@ -56,6 +65,30 @@ def test_matching_asset_and_hash_pass_without_network(
 
     assert report["ok"] is True
     assert report["assets"]["test_weight"]["status"] == "ok"
+    assert report["sources"]["dinov2"] == {
+        "path": "external_sources/dinov2",
+        "entrypoint": "hubconf.py",
+        "status": "ok",
+    }
+
+
+def test_missing_dinov2_hub_entry_reports_exact_path(tmp_path: Path) -> None:
+    asset = tmp_path / "weights" / "model.pt"
+    asset.parent.mkdir()
+    asset.write_bytes(b"offline-weight")
+    config = tmp_path / "runtime.yaml"
+    _write_config(config, "weights/model.pt", hashlib.sha256(asset.read_bytes()).hexdigest())
+
+    with pytest.raises(
+        AssetVerificationError,
+        match=r"external_sources/dinov2/hubconf\.py",
+    ):
+        verify_assets(
+            config,
+            project_root=tmp_path,
+            torch_module=SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False)),
+            gtsam_module=SimpleNamespace(Pose3=object()),
+        )
 
 
 def test_missing_asset_reports_exact_relative_path(tmp_path: Path) -> None:

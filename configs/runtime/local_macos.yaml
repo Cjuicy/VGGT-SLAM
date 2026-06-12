@@ -9,6 +9,10 @@ assets:
   dinov2_weight:
     path: weights/dinov2_vitb14_pretrain.pth
     sha256: 0b8b82f85de91b424aded121c7e1dcc2b7bc6d0adeea651bf73a13307fad8c73
+sources:
+  dinov2:
+    path: external_sources/dinov2
+    entrypoint: hubconf.py
 capabilities:
   require_cuda: false
   solver_mode: baseline_sim3_compat

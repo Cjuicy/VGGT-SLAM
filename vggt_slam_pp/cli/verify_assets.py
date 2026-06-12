@@ -64,6 +64,7 @@ def verify_assets(
         "runtime_id": config.get("runtime_id"),
         "config": str(config_path),
         "assets": {},
+        "sources": {},
         "capabilities": {},
     }
 
@@ -88,6 +89,24 @@ def verify_assets(
         report["assets"][asset_name] = {
             "path": relative_path,
             "sha256": actual_hash,
+            "status": "ok",
+        }
+
+    sources = config.get("sources", {})
+    if not isinstance(sources, Mapping):
+        raise AssetVerificationError("sources must be a mapping")
+
+    for source_name, declaration in sources.items():
+        if not isinstance(declaration, Mapping):
+            raise AssetVerificationError(f"invalid source declaration: {source_name}")
+        source_path = str(declaration["path"])
+        entrypoint = str(declaration["entrypoint"])
+        relative_entry = Path(source_path) / entrypoint
+        if not (project_root / relative_entry).is_file():
+            raise AssetVerificationError(f"missing source entry: {relative_entry}")
+        report["sources"][source_name] = {
+            "path": source_path,
+            "entrypoint": entrypoint,
             "status": "ok",
         }
 
