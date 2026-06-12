@@ -261,9 +261,14 @@ def load_local_salad(
         str(source),
         "dinov2_vitb14",
         source="local",
-        pretrained=True,
-        weights=str(weight),
+        pretrained=False,
     )
+    dinov2_state = torch_module.load(
+        weight,
+        map_location="cpu",
+        weights_only=True,
+    )
+    local_dino.load_state_dict(dinov2_state, strict=True)
     model = factory()
     model.backbone.model = local_dino
     state = torch_module.load(checkpoint, map_location="cpu", weights_only=True)

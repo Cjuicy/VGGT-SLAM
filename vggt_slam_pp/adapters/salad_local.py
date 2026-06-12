@@ -81,10 +81,15 @@ def load_local_salad(
             str(source),
             "dinov2_vitb14",
             source="local",
-            pretrained=True,
-            weights=str(weight),
+            pretrained=False,
         )
-    except (OSError, RuntimeError) as error:
+        dinov2_state = torch_module.load(
+            weight,
+            map_location="cpu",
+            weights_only=True,
+        )
+        local_dino.load_state_dict(dinov2_state, strict=True)
+    except (OSError, RuntimeError, pickle.UnpicklingError) as error:
         raise LocalModelAssetError(
             "DINOv2 local load failed for "
             f"{weight} from {source}; network fallback is disabled"

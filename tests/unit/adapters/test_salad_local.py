@@ -10,6 +10,11 @@ import pytest
 from vggt_slam_pp.adapters.salad_local import LocalModelAssetError, load_local_salad
 
 
+class StubDino:
+    def load_state_dict(self, state: object, *, strict: bool) -> None:
+        pass
+
+
 def test_missing_dinov2_source_reports_absolute_hubconf_path(
     tmp_path: Path,
 ) -> None:
@@ -77,6 +82,11 @@ def test_loader_uses_local_hub_and_strict_salad_checkpoint(
     checkpoint.write_bytes(b"checkpoint")
     calls: dict[str, object] = {}
 
+    class FakeDino:
+        def load_state_dict(self, state: object, *, strict: bool) -> None:
+            calls["dinov2_state"] = state
+            calls["dinov2_strict"] = strict
+
     class FakeBackbone:
         model = None
 
@@ -97,15 +107,14 @@ def test_loader_uses_local_hub_and_strict_salad_checkpoint(
             calls["device"] = str(device)
             return self
 
-    def fake_hub_load(repo: str, model: str, **kwargs: object) -> str:
+    def fake_hub_load(repo: str, model: str, **kwargs: object) -> FakeDino:
         calls["repo"] = repo
         calls["model"] = model
         calls["hub_kwargs"] = kwargs
-        return "local-dino"
+        return FakeDino()
 
     def fake_torch_load(path: Path, **kwargs: object) -> dict[str, object]:
-        calls["checkpoint"] = path
-        calls["load_kwargs"] = kwargs
+        calls.setdefault("load_calls", []).append((path, kwargs))
         return {"loaded": str(path)}
 
     fake_torch = SimpleNamespace(
@@ -123,19 +132,25 @@ def test_loader_uses_local_hub_and_strict_salad_checkpoint(
         model_factory=FakeModel,
     )
 
-    assert model.backbone.model == "local-dino"
+    assert isinstance(model.backbone.model, FakeDino)
     assert calls["repo"] == str(source.resolve())
     assert calls["model"] == "dinov2_vitb14"
     assert calls["hub_kwargs"] == {
         "source": "local",
-        "pretrained": True,
-        "weights": str(weight.resolve()),
+        "pretrained": False,
     }
-    assert calls["checkpoint"] == checkpoint.resolve()
-    assert calls["load_kwargs"] == {
-        "map_location": "cpu",
-        "weights_only": True,
-    }
+    assert calls["load_calls"] == [
+        (
+            weight.resolve(),
+            {"map_location": "cpu", "weights_only": True},
+        ),
+        (
+            checkpoint.resolve(),
+            {"map_location": "cpu", "weights_only": True},
+        ),
+    ]
+    assert calls["dinov2_state"] == {"loaded": str(weight.resolve())}
+    assert calls["dinov2_strict"] is True
     assert calls["state"] == {"loaded": str(checkpoint.resolve())}
     assert calls["strict"] is True
     assert calls["eval"] is True
@@ -206,7 +221,7 @@ def test_default_factory_never_calls_salad_remote_hub(
     monkeypatch.setitem(sys.modules, "salad.vpr_model", vpr_module)
 
     fake_torch = SimpleNamespace(
-        hub=SimpleNamespace(load=lambda *args, **kwargs: "local-dino"),
+        hub=SimpleNamespace(load=lambda *args, **kwargs: StubDino()),
         load=lambda *args, **kwargs: {},
         device=lambda value: value,
         nn=SimpleNamespace(Module=FakeModule),
@@ -220,7 +235,7 @@ def test_default_factory_never_calls_salad_remote_hub(
         torch_module=fake_torch,
     )
 
-    assert model.backbone.model == "local-dino"
+    assert isinstance(model.backbone.model, StubDino)
     assert model.backbone.num_channels == 768
     assert model.backbone.num_trainable_blocks == 4
     assert model.backbone.norm_layer is True
@@ -273,7 +288,8 @@ def test_default_factory_restores_helper_when_vpr_construction_fails(
     monkeypatch.setitem(sys.modules, "salad.vpr_model", vpr_module)
 
     fake_torch = SimpleNamespace(
-        hub=SimpleNamespace(load=lambda *args, **kwargs: "local-dino"),
+        hub=SimpleNamespace(load=lambda *args, **kwargs: StubDino()),
+        load=lambda *args, **kwargs: {},
         nn=SimpleNamespace(Module=FakeModule),
     )
 
@@ -356,7 +372,7 @@ def test_default_factory_serializes_concurrent_salad_construction(
     monkeypatch.setitem(sys.modules, "salad.vpr_model", vpr_module)
 
     fake_torch = SimpleNamespace(
-        hub=SimpleNamespace(load=lambda *args, **kwargs: "local-dino"),
+        hub=SimpleNamespace(load=lambda *args, **kwargs: StubDino()),
         load=lambda *args, **kwargs: {},
         device=lambda value: value,
         nn=SimpleNamespace(Module=FakeModule),
@@ -441,12 +457,14 @@ def test_checkpoint_failure_reports_checkpoint_and_disables_network_fallback(
         def load_state_dict(self, state: object, *, strict: bool) -> None:
             raise AssertionError("checkpoint load should fail first")
 
-    def fail_checkpoint(*args: object, **kwargs: object) -> None:
+    def load_weights(path: Path, **kwargs: object) -> dict[str, object]:
+        if Path(path) == weight.resolve():
+            return {}
         raise RuntimeError("invalid SALAD checkpoint")
 
     fake_torch = SimpleNamespace(
-        hub=SimpleNamespace(load=lambda *args, **kwargs: "local-dino"),
-        load=fail_checkpoint,
+        hub=SimpleNamespace(load=lambda *args, **kwargs: StubDino()),
+        load=load_weights,
     )
 
     with pytest.raises(
@@ -480,12 +498,14 @@ def test_unpickling_failure_reports_checkpoint_and_disables_network_fallback(
     class FakeModel:
         pass
 
-    def fail_checkpoint(*args: object, **kwargs: object) -> None:
+    def load_weights(path: Path, **kwargs: object) -> dict[str, object]:
+        if Path(path) == weight.resolve():
+            return {}
         raise pickle.UnpicklingError("invalid pickle stream")
 
     fake_torch = SimpleNamespace(
-        hub=SimpleNamespace(load=lambda *args, **kwargs: "local-dino"),
-        load=fail_checkpoint,
+        hub=SimpleNamespace(load=lambda *args, **kwargs: StubDino()),
+        load=load_weights,
     )
 
     with pytest.raises(

@@ -67,20 +67,21 @@ Torch Hub 的隐式行为。
 
 - 校验 DINOv2 源码目录。
 - 从源码目录加载官方 `hubconf.py`。
-- 使用下列官方本地 Hub 调用构造模型：
+- 使用官方本地 Hub 调用只构造模型结构：
 
   ```python
-  torch.hub.load(
+  model = torch.hub.load(
       str(dinov2_source),
       "dinov2_vitb14",
       source="local",
-      pretrained=True,
-      weights=str(dinov2_weight),
+      pretrained=False,
   )
   ```
 
-- 将本地权重路径作为 `weights` 参数传给官方构造入口。官方实现会把本地
-  路径转换为 `file://` URL，并使用 `strict=True` 加载 state dict。
+- 使用 `torch.load(..., map_location="cpu", weights_only=True)` 直接读取
+  本地权重，再调用 `model.load_state_dict(..., strict=True)`。
+- 不把本地路径传给 Hub 的 `weights` 参数。该入口会把本地路径转换为
+  `file://` URL，再复制到 Torch Hub 缓存并显示误导性的 `Downloading:`。
 - 在加载期间禁止网络回退。
 - 返回构造完成的 backbone。
 
