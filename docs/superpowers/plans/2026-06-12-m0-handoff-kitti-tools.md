@@ -443,8 +443,15 @@ git commit -m "docs: explain ATE evaluation workflow"
 The runbook must define:
 
 ```bash
-RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMM
+RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMMSS
+set -Eeuo pipefail
+
+test -d "artifacts/m0/$RUN_ID"
+test -d "artifacts/m0/submaps/$RUN_ID"
 mkdir -p artifacts/packages
+test ! -e "artifacts/packages/$RUN_ID.sha256"
+test ! -e "artifacts/packages/$RUN_ID.tar.gz"
+test ! -e "artifacts/packages/$RUN_ID.tar.gz.sha256"
 
 find "artifacts/m0/$RUN_ID" "artifacts/m0/submaps/$RUN_ID" \
   -type f -print0 \
@@ -473,18 +480,27 @@ Also document:
 Include:
 
 ```bash
-RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMM
-mkdir -p "artifacts/packages" "artifacts/imported/$RUN_ID"
+RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMMSS
+set -Eeuo pipefail
+
+IMPORT_ROOT="artifacts/imported/$RUN_ID"
+IMPORT_TMP="$IMPORT_ROOT.partial"
+mkdir -p "artifacts/packages" "artifacts/imported"
+test ! -e "$IMPORT_ROOT"
+test ! -e "$IMPORT_TMP"
 
 shasum -a 256 -c "artifacts/packages/$RUN_ID.tar.gz.sha256"
+mkdir "$IMPORT_TMP"
 tar -xzf "artifacts/packages/$RUN_ID.tar.gz" \
-  -C "artifacts/imported/$RUN_ID"
+  -C "$IMPORT_TMP"
 
 (
-  cd "artifacts/imported/$RUN_ID"
+  cd "$IMPORT_TMP"
   shasum -a 256 -c \
     "artifacts/packages/$RUN_ID.sha256"
 )
+
+mv "$IMPORT_TMP" "$IMPORT_ROOT"
 ```
 
 Add a note that Linux uses `sha256sum` while macOS uses `shasum -a 256`.
@@ -558,8 +574,11 @@ IDs from image filenames.
 Use a unique `run_id`:
 
 ```bash
-RUN_ID=kitti09-pp-bridge-$(date +%Y%m%d-%H%M)
-mkdir -p "artifacts/m0/$RUN_ID" "artifacts/m0/submaps"
+RUN_ID=kitti09-pp-bridge-$(date +%Y%m%d-%H%M%S)
+mkdir -p artifacts/m0 artifacts/m0/submaps
+test ! -e "artifacts/m0/$RUN_ID"
+test ! -e "artifacts/m0/submaps/$RUN_ID"
+mkdir "artifacts/m0/$RUN_ID"
 
 python VGGT-SLAM-version1.0/main.py \
   --image_folder data/09/image_2 \
@@ -585,8 +604,10 @@ python -m vggt_slam_pp.cli.evaluate_ate \
 Use a separate unique ID:
 
 ```bash
-RUN_ID=kitti09-sim3-salad-$(date +%Y%m%d-%H%M)
-mkdir -p "artifacts/m0/$RUN_ID"
+RUN_ID=kitti09-sim3-salad-$(date +%Y%m%d-%H%M%S)
+mkdir -p artifacts/m0
+test ! -e "artifacts/m0/$RUN_ID"
+mkdir "artifacts/m0/$RUN_ID"
 
 python VGGT-SLAM-version1.0/main.py \
   --image_folder data/09/image_2 \

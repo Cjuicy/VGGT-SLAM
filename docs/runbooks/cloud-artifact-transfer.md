@@ -6,7 +6,7 @@ Mac。本流程不使用 Git 传输运行产物；Git 只保存代码、配置�
 所有命令都从仓库根目录执行。先把示例 `RUN_ID` 替换为本次实际运行编号：
 
 ```bash
-RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMM
+RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMMSS
 ```
 
 ## 1. 云端打包
@@ -14,16 +14,23 @@ RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMM
 先确认主运行目录和子图目录同时存在，并估算下载体积：
 
 ```bash
+set -Eeuo pipefail
+
 test -d "artifacts/m0/$RUN_ID"
 test -d "artifacts/m0/submaps/$RUN_ID"
+test "$(find "artifacts/m0/$RUN_ID" "artifacts/m0/submaps/$RUN_ID" \
+  -type f | wc -l)" -gt 0
 du -sh "artifacts/m0/$RUN_ID" "artifacts/m0/submaps/$RUN_ID"
-```
 
-缺少任一目录时不要打包。以下命令先生成逐文件 SHA-256 清单，再创建压缩包，
-最后为压缩包本身生成 SHA-256：
-
-```bash
 mkdir -p artifacts/packages
+test ! -e "artifacts/packages/$RUN_ID.sha256"
+test ! -e "artifacts/packages/$RUN_ID.tar.gz"
+test ! -e "artifacts/packages/$RUN_ID.tar.gz.sha256"
+
+trap 'rm -f \
+  "artifacts/packages/$RUN_ID.sha256" \
+  "artifacts/packages/$RUN_ID.tar.gz" \
+  "artifacts/packages/$RUN_ID.tar.gz.sha256"' ERR
 
 find "artifacts/m0/$RUN_ID" "artifacts/m0/submaps/$RUN_ID" \
   -type f -print0 \
@@ -39,8 +46,13 @@ tar -czf "artifacts/packages/$RUN_ID.tar.gz" \
 sha256sum "artifacts/packages/$RUN_ID.tar.gz" \
   > "artifacts/packages/$RUN_ID.tar.gz.sha256"
 
+trap - ERR
 du -sh "artifacts/packages/$RUN_ID.tar.gz"
 ```
+
+缺少任一目录、没有产物文件、目标包已存在或任一命令失败时，脚本都会停止。
+`ERR` trap 会删除本次未完成的清单和压缩包，不会留下可被误认为有效交接件的
+半成品。
 
 压缩包只允许包含：
 
@@ -71,18 +83,31 @@ Linux 使用 `sha256sum`，macOS 使用 `shasum -a 256`。先验证压缩包，�
 最后按云端生成的清单逐文件验证：
 
 ```bash
-RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMM
-mkdir -p "artifacts/packages" "artifacts/imported/$RUN_ID"
+set -Eeuo pipefail
+
+RUN_ID=kitti09-pp-bridge-YYYYMMDD-HHMMSS
+IMPORT_ROOT="artifacts/imported/$RUN_ID"
+IMPORT_TMP="$IMPORT_ROOT.partial"
+
+mkdir -p "artifacts/packages" "artifacts/imported"
+test ! -e "$IMPORT_ROOT"
+test ! -e "$IMPORT_TMP"
 
 shasum -a 256 -c "artifacts/packages/$RUN_ID.tar.gz.sha256"
+mkdir "$IMPORT_TMP"
+trap 'rm -rf "$IMPORT_TMP"' ERR
+
 tar -xzf "artifacts/packages/$RUN_ID.tar.gz" \
-  -C "artifacts/imported/$RUN_ID"
+  -C "$IMPORT_TMP"
 
 (
-  cd "artifacts/imported/$RUN_ID"
+  cd "$IMPORT_TMP"
   shasum -a 256 -c \
     "artifacts/packages/$RUN_ID.sha256"
 )
+
+mv "$IMPORT_TMP" "$IMPORT_ROOT"
+trap - ERR
 ```
 
 压缩包内保留了从仓库根开始的 `artifacts/...` 相对布局，因此逐文件清单中的
@@ -105,7 +130,7 @@ python -m vggt_slam_pp.cli.inspect_submap_cache \
 - 压缩包 SHA-256 不匹配：删除本次下载副本，通过 AutoDL 文件管理器重新
   下载；不要尝试修补压缩包。
 - 解压后的逐文件校验失败：保留云端原包用于定位，删除本地解压副本，重新
-  下载并从压缩包校验开始。
+  下载并从压缩包校验开始。失败的 `.partial` 目录会自动清理。
 - 缺少 `artifacts/m0/submaps/$RUN_ID`：不接受该交接包；先回到云端检查桥接
   命令、`--export_submaps_dir` 和运行日志。
 - 云端运行中断：使用新的 `run_id` 重新运行。不要覆盖旧运行目录、子图缓存

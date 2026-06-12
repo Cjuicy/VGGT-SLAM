@@ -52,8 +52,13 @@ python -m vggt_slam_pp.cli.convert_kitti_trajectory \
 回环结果混入待实现的后端。每次运行都生成新的编号：
 
 ```bash
-RUN_ID=kitti09-pp-bridge-$(date +%Y%m%d-%H%M)
-mkdir -p "artifacts/m0/$RUN_ID" "artifacts/m0/submaps"
+set -euo pipefail
+
+RUN_ID=kitti09-pp-bridge-$(date +%Y%m%d-%H%M%S)
+mkdir -p artifacts/m0 artifacts/m0/submaps
+test ! -e "artifacts/m0/$RUN_ID"
+test ! -e "artifacts/m0/submaps/$RUN_ID"
+mkdir "artifacts/m0/$RUN_ID"
 
 python VGGT-SLAM-version1.0/main.py \
   --image_folder data/09/image_2 \
@@ -88,8 +93,12 @@ python -m vggt_slam_pp.cli.evaluate_ate \
 VGGT-SLAM++ VPR 和全局优化的对照。它需要已审核的本地源码与三份权重：
 
 ```bash
-RUN_ID=kitti09-sim3-salad-$(date +%Y%m%d-%H%M)
-mkdir -p "artifacts/m0/$RUN_ID"
+set -euo pipefail
+
+RUN_ID=kitti09-sim3-salad-$(date +%Y%m%d-%H%M%S)
+mkdir -p artifacts/m0
+test ! -e "artifacts/m0/$RUN_ID"
+mkdir "artifacts/m0/$RUN_ID"
 
 python VGGT-SLAM-version1.0/main.py \
   --image_folder data/09/image_2 \
