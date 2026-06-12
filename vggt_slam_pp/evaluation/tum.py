@@ -40,6 +40,7 @@ class CanonicalTrajectory:
 
 
 def read_tum_rows(path: Path) -> np.ndarray:
+    # TUM 每行固定为 timestamp tx ty tz qx qy qz qw。
     rows: list[list[float]] = []
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         stripped = line.strip()
@@ -66,6 +67,8 @@ def canonicalize_tum(rows: np.ndarray) -> CanonicalTrajectory:
     max_translation = 0.0
     max_rotation_deg = 0.0
 
+    # 相邻子图共享边界帧，因此原始 VGGT-SLAM 日志可能重复同一时间戳。
+    # 规范轨迹保留第一次出现，并记录被丢弃项与首项的最大分歧。
     first_index_by_timestamp: dict[float, int] = {}
     for index, row in enumerate(values):
         timestamp = float(row[0])
@@ -82,6 +85,7 @@ def canonicalize_tum(rows: np.ndarray) -> CanonicalTrajectory:
 
         first_quaternion = first[4:8] / np.linalg.norm(first[4:8])
         duplicate_quaternion = row[4:8] / np.linalg.norm(row[4:8])
+        # q 与 -q 表示同一旋转，取点积绝对值后再计算最小夹角。
         cosine = float(
             np.clip(abs(np.dot(first_quaternion, duplicate_quaternion)), -1.0, 1.0)
         )

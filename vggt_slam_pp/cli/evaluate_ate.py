@@ -27,11 +27,13 @@ def build_report(
     canonical_groundtruth = canonicalize_tum(groundtruth_rows)
     canonical_estimate = canonicalize_tum(estimate_rows)
 
+    # paper_compatible 保留原始边界重复帧，便于复现既有基线口径。
     raw_result = evaluate_translation_ape(
         groundtruth_path,
         estimate_path,
         max_timestamp_difference=max_timestamp_difference,
     )
+    # canonical_unique 只用于第二次评测；临时去重轨迹不会写入正式产物。
     with tempfile.TemporaryDirectory(prefix="vggt-slam-pp-ate-") as temporary:
         temporary_root = Path(temporary)
         canonical_groundtruth_path = temporary_root / "groundtruth.txt"
