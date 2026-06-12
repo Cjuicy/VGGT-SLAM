@@ -44,3 +44,27 @@
 这些项目必须按 `docs/runbooks/m0-autodl-baseline.md` 在 AutoDL 完成，并
 把环境、命令、ATE 和已知偏差放入新的云端审查目录后，M0 才能通过人工
 Review Gate。
+
+## 2026-06-12 离线 DINOv2 加载增量验证
+
+本次验证针对 SALAD 回环模块的本地 DINOv2 源码和权重加载入口：
+
+- `conda run -n vggt-dem pytest tests/unit/adapters/test_salad_local.py tests/unit/test_verify_assets.py tests/static/test_baseline_cli.py tests/integration/test_baseline_export_hook.py -v`
+  - 23 项聚焦测试通过。
+  - 覆盖本地 Hub 参数、严格 checkpoint 加载、缺失资产错误、并发构造恢复、
+    基线参数传递和 `max_loops=0` 隔离。
+- `conda run -n vggt-dem pytest tests -v`
+  - 74 项完整测试通过。
+  - 用时 1.38 秒。
+- `conda run -n vggt-dem python -m compileall -q vggt_slam_pp VGGT-SLAM-version1.0`
+  - 通过，无语法错误。
+
+本地没有提供 `external_sources/dinov2/`，因此本次没有加载真实官方 DINOv2
+源码，也没有执行真实 SALAD/DINOv2 前向。以下内容仍是 AutoDL 人工审核
+检查点：
+
+- `external_sources/dinov2/hubconf.py` 与实际 commit 记录。
+- 断网状态下加载 `weights/dinov2_vitb14_pretrain.pth` 和
+  `weights/dino_salad.ckpt`。
+- 终端不出现 `Downloading:`。
+- Office-loop `max_loops=1` 完整运行及轨迹、子图和回环数量。
