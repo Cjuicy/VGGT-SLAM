@@ -115,6 +115,19 @@ python scripts/verify_assets.py --config configs/runtime/autodl_cuda.yaml
 python -c "import gtsam; print(gtsam.SL4, gtsam.PriorFactorSL4, gtsam.BetweenFactorSL4)"
 ```
 
+运行基线前先创建所有输出目录。`main.py` 会创建具体文件，但不会自动创建
+`--log_path` 的父目录：
+
+```bash
+mkdir -p \
+  artifacts/m0/office-sl4-no-export \
+  artifacts/m0/office-sl4-export \
+  artifacts/m0/tum-desk-sl4 \
+  artifacts/m0/tum-desk-sim3 \
+  artifacts/m0/tum-desk-pp-bridge \
+  artifacts/m0/submaps
+```
+
 ## 1. Office-loop SL(4)，关闭导出
 
 ```bash
