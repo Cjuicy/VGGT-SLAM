@@ -19,6 +19,12 @@ def main() -> int:
 
     input_path = args.input.resolve()
     output_path = args.output.resolve()
+    if input_path == output_path or (
+        output_path.exists() and input_path.samefile(output_path)
+    ):
+        parser.error("input and output must refer to different files")
+
+    input_sha256 = sha256_file(input_path)
     rows = read_kitti_pose_rows(input_path)
     write_tum_rows(output_path, rows)
 
@@ -27,7 +33,7 @@ def main() -> int:
         "input": str(input_path),
         "output": str(output_path),
         "pose_count": len(rows),
-        "input_sha256": sha256_file(input_path),
+        "input_sha256": input_sha256,
         "output_sha256": sha256_file(output_path),
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
