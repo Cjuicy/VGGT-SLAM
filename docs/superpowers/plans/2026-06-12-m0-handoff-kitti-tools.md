@@ -630,7 +630,7 @@ At the end of `m0-autodl-baseline.md`, add:
 ## 5. 长序列 KITTI 09
 
 TUM desk 验收通过后，按
-[`m0-kitti09-autodl.md`](m0-kitti09-autodl.md)
+[`m0-kitti09-autodl.md`](../../runbooks/m0-kitti09-autodl.md)
 执行长序列桥接、回环基线、ATE 和产物回传。
 ```
 
