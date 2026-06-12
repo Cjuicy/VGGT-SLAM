@@ -251,3 +251,9 @@ python -m vggt_slam_pp.cli.evaluate_ate \
 
 人工审核要求：ATE 有限、规范轨迹关联帧数不少于 10、桥接图状态的回环数
 为 0，并抽查第一个、中间和最后一个子图的形状、有限值与校验和。
+
+## 5. 长序列 KITTI 09
+
+TUM desk 验收通过后，按
+[`m0-kitti09-autodl.md`](m0-kitti09-autodl.md)
+执行长序列桥接、回环基线、ATE 和产物回传。
