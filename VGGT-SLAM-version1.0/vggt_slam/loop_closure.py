@@ -46,16 +46,23 @@ class LoopMatchQueue:
         
 
 class ImageRetrieval:
-    def __init__(self, checkpoint_path: Path, device: torch.device, input_size=224):
-        # Import lazily so max_loops=0 does not require SALAD to be installed.
-        from salad.eval import load_model
+    def __init__(
+        self,
+        checkpoint_path: Path,
+        dinov2_source: Path,
+        dinov2_weight: Path,
+        device: torch.device,
+        input_size=224,
+    ):
+        from vggt_slam_pp.adapters.salad_local import load_local_salad
 
-        checkpoint_path = Path(checkpoint_path)
-        if not checkpoint_path.is_file():
-            raise FileNotFoundError(f"SALAD checkpoint not found: {checkpoint_path}")
         self.device = torch.device(device)
-        self.model = load_model(str(checkpoint_path))
-        self.model.eval().to(self.device)
+        self.model = load_local_salad(
+            salad_checkpoint=checkpoint_path,
+            dinov2_source=dinov2_source,
+            dinov2_weight=dinov2_weight,
+            device=self.device,
+        )
         self.transform = input_transform((input_size, input_size))
 
     def get_single_embeding(self, cv_img):

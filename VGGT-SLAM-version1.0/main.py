@@ -43,6 +43,8 @@ parser.add_argument("--vis_stride", type=int, default=1, help="Stride interval i
 parser.add_argument("--vis_point_size", type=float, default=0.003, help="Visualization point size")
 parser.add_argument("--vggt_weight", type=str, default="weights/model.pt", help="Local VGGT state-dict path; runtime downloads are disabled")
 parser.add_argument("--salad_checkpoint", type=str, default="weights/dino_salad.ckpt", help="Local SALAD checkpoint, required only when max_loops > 0")
+parser.add_argument("--dinov2_source", type=str, default="external_sources/dinov2", help="Local official DINOv2 source directory; runtime downloads are disabled")
+parser.add_argument("--dinov2_weight", type=str, default="weights/dinov2_vitb14_pretrain.pth", help="Local DINOv2 ViT-B/14 pretraining weight")
 parser.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default="auto", help="Inference device; auto prefers CUDA, then MPS, then CPU")
 parser.add_argument("--export_submaps_dir", type=str, default=None, help="Optional M0 cache output directory; disabled by default")
 parser.add_argument("--run_id", type=str, default="baseline-run", help="Stable identifier recorded in M0 artifacts")
@@ -91,6 +93,8 @@ def main():
         device=device,
         enable_loop_closure=args.max_loops > 0,
         salad_checkpoint=Path(args.salad_checkpoint),
+        dinov2_source=Path(args.dinov2_source),
+        dinov2_weight=Path(args.dinov2_weight),
     )
 
     print("Initializing and loading VGGT model...")

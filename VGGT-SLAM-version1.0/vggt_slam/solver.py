@@ -15,7 +15,6 @@ from vggt.utils.geometry import closed_form_inverse_se3, unproject_depth_map_to_
 from vggt.utils.load_fn import load_and_preprocess_images
 from vggt.utils.pose_enc import pose_encoding_to_extri_intri
 
-from vggt_slam.loop_closure import ImageRetrieval
 from vggt_slam.frame_overlap import FrameTracker
 from vggt_slam.map import GraphMap
 from vggt_slam.submap import Submap
@@ -149,7 +148,9 @@ class Solver:
         vis_point_size: float = 0.001,
         device: torch.device = torch.device("cpu"),
         enable_loop_closure: bool = True,
-        salad_checkpoint: Path | None = None):
+        salad_checkpoint: Path | None = None,
+        dinov2_source: Path | None = None,
+        dinov2_weight: Path | None = None):
         
         self.init_conf_threshold = init_conf_threshold
         self.use_point_map = use_point_map
@@ -172,10 +173,24 @@ class Solver:
         self.graph = PoseGraph()
 
         if self.enable_loop_closure:
-            if salad_checkpoint is None:
-                raise ValueError("salad_checkpoint is required when loop closure is enabled")
+            required_assets = {
+                "salad_checkpoint": salad_checkpoint,
+                "dinov2_source": dinov2_source,
+                "dinov2_weight": dinov2_weight,
+            }
+            missing_assets = [
+                name for name, path in required_assets.items() if path is None
+            ]
+            if missing_assets:
+                raise ValueError(
+                    f"{', '.join(missing_assets)} required when loop closure is enabled"
+                )
+            from vggt_slam.loop_closure import ImageRetrieval
+
             self.image_retrieval = ImageRetrieval(
                 checkpoint_path=salad_checkpoint,
+                dinov2_source=dinov2_source,
+                dinov2_weight=dinov2_weight,
                 device=self.device,
             )
         else:

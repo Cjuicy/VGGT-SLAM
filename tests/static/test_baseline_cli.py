@@ -29,6 +29,8 @@ def test_baseline_exposes_explicit_runtime_and_bridge_arguments() -> None:
     for argument in (
         "--vggt_weight",
         "--salad_checkpoint",
+        "--dinov2_source",
+        "--dinov2_weight",
         "--device",
         "--export_submaps_dir",
         "--run_id",
@@ -61,3 +63,22 @@ def test_loop_retrieval_is_optional_when_disabled() -> None:
     source = SOLVER.read_text(encoding="utf-8")
     assert "enable_loop_closure" in source
     assert "if self.enable_loop_closure" in source
+
+
+def test_loop_closure_uses_reviewed_local_salad_loader() -> None:
+    source = LOOP_CLOSURE.read_text(encoding="utf-8")
+    assert "from vggt_slam_pp.adapters.salad_local import load_local_salad" in source
+    assert "from salad.eval import load_model" not in source
+    assert "dinov2_source" in source
+    assert "dinov2_weight" in source
+
+
+def test_project_adapter_allows_only_explicit_local_hub() -> None:
+    adapter = (
+        Path(__file__).resolve().parents[2]
+        / "vggt_slam_pp"
+        / "adapters"
+        / "salad_local.py"
+    ).read_text(encoding="utf-8")
+    assert 'source="local"' in adapter
+    assert "facebookresearch/dinov2" not in adapter
