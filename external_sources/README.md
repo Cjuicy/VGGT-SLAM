@@ -6,6 +6,7 @@
 ## 已核验来源
 
 - [Facebook Research VGGT](https://github.com/facebookresearch/vggt)
+- [Meta DINOv2](https://github.com/facebookresearch/dinov2)
 - [VGGT-SLAM v1 使用的 SALAD fork](https://github.com/Dominic101/salad)
 - [GTSAM develop](https://github.com/borglab/gtsam/tree/develop)
 - [VGGT-SLAM 官方 version1.0](https://github.com/MIT-SPARK/VGGT-SLAM/tree/version1.0)
@@ -13,6 +14,7 @@
 不使用 Git 时可直接下载：
 
 - [VGGT main ZIP](https://github.com/facebookresearch/vggt/archive/refs/heads/main.zip)
+- [DINOv2 main ZIP](https://github.com/facebookresearch/dinov2/archive/refs/heads/main.zip)
 - [SALAD main ZIP](https://github.com/Dominic101/salad/archive/refs/heads/main.zip)
 - [GTSAM develop ZIP](https://github.com/borglab/gtsam/archive/refs/heads/develop.zip)
 - [VGGT-SLAM version1.0 ZIP](https://github.com/MIT-SPARK/VGGT-SLAM/archive/refs/heads/version1.0.zip)
@@ -26,6 +28,7 @@ ZIP 不保留 Git commit 元数据，论文复现优先使用下方 `git clone` 
 ```text
 external_sources/
 ├── vggt/
+├── dinov2/
 ├── salad/
 └── gtsam_with_sl4/
 ```
@@ -38,6 +41,9 @@ external_sources/
 git clone --branch main https://github.com/facebookresearch/vggt.git \
   external_sources/vggt
 
+git clone --branch main https://github.com/facebookresearch/dinov2.git \
+  external_sources/dinov2
+
 git clone --branch main https://github.com/Dominic101/salad.git \
   external_sources/salad
 
@@ -49,6 +55,7 @@ git clone --branch develop https://github.com/borglab/gtsam.git \
 
 ```bash
 git -C external_sources/vggt rev-parse HEAD
+git -C external_sources/dinov2 rev-parse HEAD
 git -C external_sources/salad rev-parse HEAD
 git -C external_sources/gtsam_with_sl4 rev-parse HEAD
 ```
@@ -67,6 +74,10 @@ git -C external_sources/gtsam_with_sl4 rev-parse HEAD
 python -m pip install -e external_sources/vggt
 python -m pip install -e external_sources/salad
 ```
+
+`external_sources/dinov2` 不通过 pip 安装。基线通过其本地 `hubconf.py`
+构造模型，并显式加载 `weights/dinov2_vitb14_pretrain.pth`；运行时禁止
+回退到远端 Torch Hub。
 
 `gtsam_with_sl4` 必须按
 [GTSAM 官方源码构建说明](https://github.com/borglab/gtsam/blob/develop/INSTALL.md)

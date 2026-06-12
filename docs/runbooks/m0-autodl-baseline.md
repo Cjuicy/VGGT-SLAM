@@ -28,14 +28,14 @@ cd VGGT-SLAM
 
 git switch -c autodl/m0-validation
 git config user.name "Cjuicy"
-git config user.email "替换为你的 GitHub 邮箱"
+git config user.email "2426519930@qq.com"
 ```
 
 公开仓库的克隆不要求 Token。若仓库以后设为私有，Git 会提示输入：
 
 ```text
 Username: Cjuicy
-Password: 粘贴 Fine-grained Token
+Password: 粘贴 Fine-grained Token :
 ```
 
 这里的 `Password` 是 Token，不是 GitHub 登录密码。终端输入时不会显示字符。
@@ -76,6 +76,7 @@ weights/dinov2_vitb14_pretrain.pth
 data/rgbd_dataset_freiburg1_desk/
 VGGT-SLAM-version1.0/office_loop/
 external_sources/vggt/
+external_sources/dinov2/
 external_sources/salad/
 external_sources/gtsam_with_sl4/
 ```
@@ -105,6 +106,11 @@ python -m pip install -e external_sources/salad
 符号存在。不要执行原版 `setup.sh`，它会克隆未锁定版本的依赖。
 
 ```bash
+cd ~/autodl-tmp/VGGT-SLAM
+test -f scripts/verify_assets.py
+test -f external_sources/dinov2/hubconf.py
+rm -f ~/.cache/torch/hub/main.zip
+export OMP_NUM_THREADS=4
 python scripts/verify_assets.py --config configs/runtime/autodl_cuda.yaml
 python -c "import gtsam; print(gtsam.SL4, gtsam.PriorFactorSL4, gtsam.BetweenFactorSL4)"
 ```
@@ -116,6 +122,8 @@ python VGGT-SLAM-version1.0/main.py \
   --image_folder VGGT-SLAM-version1.0/office_loop \
   --vggt_weight weights/model.pt \
   --salad_checkpoint weights/dino_salad.ckpt \
+  --dinov2_source external_sources/dinov2 \
+  --dinov2_weight weights/dinov2_vitb14_pretrain.pth \
   --device cuda --submap_size 16 --max_loops 1 \
   --run_id office-sl4-no-export --run_purpose baseline_reference \
   --log_results --skip_dense_log \
@@ -129,6 +137,8 @@ python VGGT-SLAM-version1.0/main.py \
   --image_folder VGGT-SLAM-version1.0/office_loop \
   --vggt_weight weights/model.pt \
   --salad_checkpoint weights/dino_salad.ckpt \
+  --dinov2_source external_sources/dinov2 \
+  --dinov2_weight weights/dinov2_vitb14_pretrain.pth \
   --device cuda --submap_size 16 --max_loops 1 \
   --run_id office-sl4-export --run_purpose baseline_reference \
   --export_submaps_dir artifacts/m0/submaps \
@@ -164,6 +174,8 @@ python VGGT-SLAM-version1.0/main.py \
   --image_folder data/rgbd_dataset_freiburg1_desk/rgb \
   --vggt_weight weights/model.pt \
   --salad_checkpoint weights/dino_salad.ckpt \
+  --dinov2_source external_sources/dinov2 \
+  --dinov2_weight weights/dinov2_vitb14_pretrain.pth \
   --device cuda --submap_size 32 --max_loops 1 \
   --run_id tum-desk-sl4 --run_purpose baseline_reference \
   --log_results --skip_dense_log \
@@ -177,6 +189,8 @@ python VGGT-SLAM-version1.0/main.py \
   --image_folder data/rgbd_dataset_freiburg1_desk/rgb \
   --vggt_weight weights/model.pt \
   --salad_checkpoint weights/dino_salad.ckpt \
+  --dinov2_source external_sources/dinov2 \
+  --dinov2_weight weights/dinov2_vitb14_pretrain.pth \
   --device cuda --use_sim3 --submap_size 32 --max_loops 1 \
   --run_id tum-desk-sim3 --run_purpose baseline_reference \
   --log_results --skip_dense_log \

@@ -9,6 +9,14 @@ sources:
     commit: null
     license_reviewed: false
     status: user_source_required
+  dinov2:
+    path: external_sources/dinov2
+    upstream: https://github.com/facebookresearch/dinov2.git
+    browser_url: https://github.com/facebookresearch/dinov2
+    ref: main
+    commit: null
+    license_reviewed: false
+    status: user_source_required
   salad:
     path: external_sources/salad
     upstream: https://github.com/Dominic101/salad.git
