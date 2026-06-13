@@ -7,9 +7,8 @@
 
 1. 明确 AutoDL 产物如何打包、下载、校验和本地归档。
 2. 为 KITTI Odometry 09 编写上传、运行、缓存导出和 ATE 评测手册。
-3. 整理 `code-review-graph` 的生成物、配置边界和中文使用方法。
-4. 补充 ATE 公式、实现调用链、JSON 字段解释和关键中文代码注释。
-5. 保持 VGGT-SLAM 基线改动最小，不在本轮修改 SLAM 算法行为。
+3. 补充 ATE 公式、实现调用链、JSON 字段解释和关键中文代码注释。
+4. 保持 VGGT-SLAM 基线改动最小，不在本轮修改 SLAM 算法行为。
 
 ## 2. 文档结构
 
@@ -25,14 +24,11 @@ docs/
 │   ├── m0-autodl-baseline.md
 │   ├── m0-kitti09-autodl.md
 │   └── m0-local-validation.md
-└── tools/
-    └── code-review-graph-zh.md
 ```
 
 - `README.md` 只提供项目入口、阶段状态和文档导航。
 - `runbooks` 只描述可直接执行的操作步骤。
 - `algorithms` 解释数学定义、实现选择和指标含义。
-- `tools` 解释开发辅助工具，不与论文算法混淆。
 
 ## 3. 云端产物回传
 
@@ -218,95 +214,21 @@ JSON 中继续同时记录：
 
 不在显而易见的赋值、文件打开或参数解析处堆叠注释。
 
-## 6. code-review-graph 整理
+## 6. 仓库清理
 
-### 6.1 当前生成物
-
-```text
-.code-review-graph/
-├── graph.db
-├── graph.html
-└── wiki/
-```
-
-- `graph.db` 包含绝对路径和索引元数据；
-- `graph.html` 是可交互的本地可视化；
-- `wiki/` 是自动生成的社区说明；
-- 三者均可重建，不提交 Git。
-
-当前图谱覆盖 43 个文件、207 个节点和 1764 条边。全局图只用于概览，
-实际审查应优先使用搜索、执行流和影响半径。
-
-### 6.2 Git 边界
-
-提交：
-
-- `.code-review-graphignore`
-- `docs/tools/code-review-graph-zh.md`
-- `.gitignore` 中对 `.code-review-graph/` 的忽略规则
-
-本地保留但不提交：
-
-- `.mcp.json`
-- `.claude/`
-- `CLAUDE.md`
-
-原因是这些文件包含本机绝对路径、客户端钩子或特定助手指令，原样提交会
-降低跨机器可移植性。
-
-### 6.3 中文教程内容
-
-教程覆盖：
-
-1. 首次生成与更新图谱；
-2. 如何打开 `graph.html`；
-3. 页面控件：
-   - Search；
-   - Flows；
-   - Communities；
-   - Fit；
-   - Labels；
-   - 节点类型和边类型过滤；
-4. 推荐审查流程：
-   - 先搜索目标函数；
-   - 查看 callers/callees；
-   - 查看 tests_for；
-   - 修改前检查 impact radius；
-   - 修改后执行 detect changes；
-5. 哪些文件是缓存，哪些配置可提交；
-6. 图谱未覆盖动态导入、运行时数据流时，应回退到源码和测试。
-
-## 7. 仓库清理
-
-### 7.1 删除
+### 6.1 删除
 
 只删除操作系统生成的 `.DS_Store` 文件。它们不包含项目信息，且已有
 `.gitignore` 规则。
 
-### 7.2 不删除
+### 6.2 不删除
 
-- `.code-review-graph/`：本地工具仍在使用；
-- `.mcp.json`、`.claude/`、`CLAUDE.md`：保留本机配置；
 - `data/03`、`data/09`、权重和论文；
 - 用户尚未审核的 M1/M2-M4 计划。
 
-### 7.3 忽略规则
+## 7. 测试与验收
 
-`.gitignore` 明确加入：
-
-```gitignore
-/.code-review-graph/
-/.claude/
-/.mcp.json
-/CLAUDE.md
-```
-
-`.code-review-graphignore` 继续排除上游源码、外部依赖、数据、权重、论文和
-生成产物，使图谱只聚焦本项目实现与测试。
-
-## 8. 测试与验收
-
-### 8.1 自动测试
+### 7.1 自动测试
 
 - KITTI 位姿转换：
   - 正确转换单位旋转和已知旋转；
@@ -319,16 +241,15 @@ JSON 中继续同时记录：
   - KITTI 转换后的合成轨迹可得到接近零的 ATE。
 - 全量测试保持通过。
 
-### 8.2 文档验收
+### 7.2 文档验收
 
 - 新用户可仅按 KITTI 09 runbook 完成上传、运行、评测、打包和下载。
 - 所有命令创建输出父目录，避免再次发生 `FileNotFoundError`。
 - runbook 明确每次使用新 `run_id`，避免不可变缓存覆盖错误。
 - 云端包内存在 SHA-256 清单，本地解压前后可验证。
-- code-review-graph 教程能解释当前页面控件和文件归属。
 - ATE 文档能回答“算了什么、为什么使用 Sim(3)、主看哪个字段”。
 
-## 9. 非目标
+## 8. 非目标
 
 本轮不实现：
 

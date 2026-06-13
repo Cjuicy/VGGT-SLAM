@@ -37,7 +37,6 @@ M0 的 AutoDL 双基线、TUM desk ATE 和 VGGT-SLAM++ 前端桥接已跑通。�
 | 云端打包、SHA-256 与本地导入 | [`云端产物传输`](docs/runbooks/cloud-artifact-transfer.md) |
 | ATE 公式、字段和已验证结果 | [`M0 ATE 评测`](docs/algorithms/ate.md) |
 | 子图缓存形状、坐标系与单位 | [`M0 子图缓存契约`](docs/algorithms/submap-cache-contract.md) |
-| 代码图谱查看与审查流程 | [`code-review-graph 中文使用说明`](docs/tools/code-review-graph-zh.md) |
 | 本轮 M0 交接实现步骤 | [`M0 handoff/KITTI 计划`](docs/superpowers/plans/2026-06-12-m0-handoff-kitti-tools.md) |
 
 M1 DEM 与 M2-M4 框架的阶段目标已经写入总体设计。主工作区中的

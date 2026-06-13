@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an auditable KITTI 09 evaluation path, document AutoDL artifact transfer and code-review-graph usage, and make the existing ATE implementation easier to review without changing SLAM behavior.
+**Goal:** Add an auditable KITTI 09 evaluation path, document AutoDL artifact transfer, and make the existing ATE implementation easier to review without changing SLAM behavior.
 
-**Architecture:** Keep dataset conversion in a small `evaluation/kitti.py` module with a thin CLI wrapper. Reuse the existing TUM writer and evo ATE pipeline after converting KITTI 3x4 poses to frame-indexed TUM rows. Keep cloud transfer, KITTI execution, and graph-tool instructions in separate runbooks, while repository-local generated data remains ignored.
+**Architecture:** Keep dataset conversion in a small `evaluation/kitti.py` module with a thin CLI wrapper. Reuse the existing TUM writer and evo ATE pipeline after converting KITTI 3x4 poses to frame-indexed TUM rows. Keep cloud transfer and KITTI execution instructions in separate runbooks, while repository-local generated data remains ignored.
 
 **Tech Stack:** Python 3.11, NumPy, SciPy Rotation, evo, pytest, Markdown, Git
 
@@ -21,14 +21,11 @@ tests/unit/evaluation/test_kitti.py
 tests/integration/test_convert_kitti_trajectory.py
 docs/runbooks/cloud-artifact-transfer.md
 docs/runbooks/m0-kitti09-autodl.md
-docs/tools/code-review-graph-zh.md
 ```
 
 Modified files:
 
 ```text
-.gitignore
-.code-review-graphignore
 README.md
 pyproject.toml
 docs/algorithms/ate.md
@@ -37,9 +34,6 @@ vggt_slam_pp/evaluation/ate.py
 vggt_slam_pp/evaluation/tum.py
 vggt_slam_pp/cli/evaluate_ate.py
 ```
-
-Generated local files under `.code-review-graph/`, `.claude/`, `.mcp.json`, and
-`CLAUDE.md` remain outside Git.
 
 ### Task 1: KITTI Pose Parser and Converter
 
@@ -663,117 +657,7 @@ git add docs/runbooks/m0-kitti09-autodl.md \
 git commit -m "docs: add KITTI 09 AutoDL workflow"
 ```
 
-### Task 6: code-review-graph Guide and Repository Hygiene
-
-**Files:**
-- Modify: `.gitignore`
-- Add: `.code-review-graphignore`
-- Create: `docs/tools/code-review-graph-zh.md`
-- Delete: repository `.DS_Store` files only
-
-- [ ] **Step 1: Normalize `.gitignore`**
-
-Keep the existing generated-graph rule and add:
-
-```gitignore
-/.code-review-graph/
-/.claude/
-/.mcp.json
-/CLAUDE.md
-```
-
-Do not add broad patterns that hide ordinary Markdown or JSON files.
-
-- [ ] **Step 2: Review and stage `.code-review-graphignore`**
-
-Keep exclusions for:
-
-- `external_sources/**`;
-- `VGGT-SLAM-version1.0/**`;
-- data, weights, artifacts, outputs, logs, papers, archives;
-- Python caches and package metadata;
-- local assistant state.
-
-Add these local graph/client files if missing:
-
-```gitignore
-.code-review-graph/**
-.claude/**
-.mcp.json
-CLAUDE.md
-```
-
-- [ ] **Step 3: Write the Chinese graph guide**
-
-Create `docs/tools/code-review-graph-zh.md` with:
-
-- generated file table;
-- why `graph.db`, `graph.html`, and `wiki/` are not committed;
-- current graph scale: 43 files, 207 nodes, 1764 edges;
-- opening `graph.html` from the tool or a local HTTP server;
-- control reference for Search, Flows, Communities, Fit, Labels, node filters,
-  and edge filters;
-- recommended workflow:
-
-```text
-Search target
--> select execution flow
--> inspect callers/callees
--> inspect tests_for
--> inspect impact radius
--> edit
--> detect changes
--> run real tests
-```
-
-- explanation that a compressed global graph is normal;
-- graph limitations around runtime imports and data-dependent behavior;
-- local-only status of `.mcp.json`, `.claude/`, and `CLAUDE.md`.
-
-- [ ] **Step 4: Remove only `.DS_Store` files**
-
-Before deletion, list them:
-
-```bash
-find . -name .DS_Store -type f -print
-```
-
-Delete exactly those files after confirming the list contains no project files:
-
-```bash
-find . -name .DS_Store -type f -delete
-```
-
-- [ ] **Step 5: Verify ignored and tracked boundaries**
-
-Run:
-
-```bash
-git check-ignore -v \
-  .code-review-graph/graph.db \
-  .claude/settings.json \
-  .mcp.json \
-  CLAUDE.md \
-  data/09/image_2/000000.png \
-  weights/model.pt
-
-git status --short
-```
-
-Expected:
-
-- local graph/client/data/weight files are ignored;
-- `.code-review-graphignore` and the tool guide are visible for commit;
-- user M1/M2-M4 plans and papers are not staged.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add .gitignore .code-review-graphignore docs/tools/code-review-graph-zh.md
-git commit -m "docs: document code review graph workflow"
-```
-
-### Task 7: README Navigation and M0 Handoff Summary
+### Task 6: README Navigation and M0 Handoff Summary
 
 **Files:**
 - Modify: `README.md`
@@ -794,7 +678,6 @@ Include:
   - cloud artifact transfer;
   - ATE algorithm;
   - submap cache contract;
-  - code-review-graph guide;
   - M1/M2-M4 design and plans.
 
 - [ ] **Step 2: Add local handoff steps**
@@ -845,10 +728,10 @@ git add README.md docs/runbooks/m0-local-validation.md
 git commit -m "docs: add reproduction workflow navigation"
 ```
 
-### Task 8: Full Verification and Review Checkpoint
+### Task 7: Full Verification and Review Checkpoint
 
 **Files:**
-- Review all files changed in Tasks 1-7
+- Review all files changed in Tasks 1-6
 
 - [ ] **Step 1: Install the updated editable package**
 
@@ -915,8 +798,7 @@ git diff --stat HEAD~7..HEAD
 
 Confirm:
 
-- no data, weights, `.code-review-graph/`, `.claude/`, `.mcp.json`, or
-  `CLAUDE.md` are committed;
+- no data or weights are committed;
 - user-authored M1/M2-M4 plans and papers remain untouched;
 - no baseline SLAM algorithm file changed.
 

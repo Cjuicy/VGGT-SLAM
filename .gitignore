@@ -19,10 +19,6 @@
 /.superpowers/
 /.agents/
 /.codex/
-/.code-review-graph/
-/.claude/
-/.mcp.json
-/CLAUDE.md
 
 # Source archives and raw paper binaries are not Git transport artifacts.
 /*.zip
