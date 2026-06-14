@@ -35,9 +35,28 @@ def test_baseline_exposes_explicit_runtime_and_bridge_arguments() -> None:
         "--export_submaps_dir",
         "--run_id",
         "--run_purpose",
+        "--projective_solver",
+        "--projective_confidence_mode",
+        "--projective_threshold",
+        "--projective_seed",
+        "--irls_max_iterations",
     ):
         assert argument in defaults
     assert defaults["--export_submaps_dir"] is None
+    assert defaults["--projective_solver"] == "ransac"
+    assert defaults["--projective_confidence_mode"] == "legacy"
+    assert defaults["--projective_seed"] is None
+
+
+def test_projective_solver_choice_reaches_the_baseline_solver() -> None:
+    main_source = MAIN.read_text(encoding="utf-8")
+    solver_source = SOLVER.read_text(encoding="utf-8")
+
+    assert "projective_solver=args.projective_solver" in main_source
+    assert "projective_confidence_mode=args.projective_confidence_mode" in main_source
+    assert "ransac_irls_projective" in solver_source
+    assert 'self.projective_solver == "ransac_irls"' in solver_source
+    assert 'self.projective_confidence_mode == "legacy"' in solver_source
 
 
 def test_baseline_has_no_active_network_model_loaders() -> None:

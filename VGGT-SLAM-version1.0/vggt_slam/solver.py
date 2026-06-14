@@ -18,7 +18,7 @@ from vggt.utils.pose_enc import pose_encoding_to_extri_intri
 from vggt_slam.frame_overlap import FrameTracker
 from vggt_slam.map import GraphMap
 from vggt_slam.submap import Submap
-from vggt_slam.h_solve import ransac_projective
+from vggt_slam.h_solve import ransac_irls_projective, ransac_projective
 from vggt_slam.gradio_viewer import TrimeshViewer
 
 def color_point_cloud_by_confidence(pcd, confidence, cmap='viridis'):
@@ -150,7 +150,12 @@ class Solver:
         enable_loop_closure: bool = True,
         salad_checkpoint: Path | None = None,
         dinov2_source: Path | None = None,
-        dinov2_weight: Path | None = None):
+        dinov2_weight: Path | None = None,
+        projective_solver: str = "ransac",
+        projective_confidence_mode: str = "legacy",
+        projective_threshold: float = 0.01,
+        projective_seed: int | None = None,
+        irls_max_iterations: int = 10):
         
         self.init_conf_threshold = init_conf_threshold
         self.use_point_map = use_point_map
@@ -166,6 +171,21 @@ class Solver:
         self.use_sim3 = use_sim3
         self.device = torch.device(device)
         self.enable_loop_closure = enable_loop_closure
+        if projective_solver not in {"ransac", "ransac_irls"}:
+            raise ValueError("projective_solver must be ransac or ransac_irls")
+        if projective_confidence_mode not in {"legacy", "joint"}:
+            raise ValueError(
+                "projective_confidence_mode must be legacy or joint"
+            )
+        if projective_threshold <= 0 or irls_max_iterations <= 0:
+            raise ValueError(
+                "projective_threshold and irls_max_iterations must be positive"
+            )
+        self.projective_solver = projective_solver
+        self.projective_confidence_mode = projective_confidence_mode
+        self.projective_threshold = projective_threshold
+        self.projective_seed = projective_seed
+        self.irls_max_iterations = irls_max_iterations
         if self.use_sim3:
             from vggt_slam.graph_se3 import PoseGraph
         else:
@@ -208,6 +228,68 @@ class Solver:
         self.vis_point_size = vis_point_size
 
         print("Starting viser server...")
+
+    def _estimate_projective_transform(
+        self,
+        source_points,
+        target_points,
+        confidence,
+    ):
+        """Estimate one SL(4) edge with the explicitly selected experiment mode."""
+        common_args = {
+            "threshold": self.projective_threshold,
+            "random_seed": self.projective_seed,
+        }
+        if self.projective_solver == "ransac_irls":
+            return ransac_irls_projective(
+                source_points,
+                target_points,
+                confidence=confidence,
+                irls_max_iter=self.irls_max_iterations,
+                **common_args,
+            )
+        return ransac_projective(
+            source_points,
+            target_points,
+            **common_args,
+        )
+
+    def _projective_correspondence_mask(
+        self,
+        source_confidence,
+        target_confidence,
+        source_threshold,
+        target_threshold,
+        *,
+        legacy_unfiltered=False,
+    ):
+        """Return matched valid points and scale-free soft confidence weights."""
+        source_confidence = np.asarray(source_confidence).reshape(-1)
+        target_confidence = np.asarray(target_confidence).reshape(-1)
+        if self.projective_confidence_mode == "legacy":
+            if legacy_unfiltered:
+                mask = np.ones(source_confidence.shape, dtype=bool)
+            else:
+                # Exact original temporal expression, including its use of
+                # the prior-submap threshold for both confidence arrays.
+                mask = target_confidence > target_threshold * (
+                    source_confidence > target_threshold
+                )
+        else:
+            mask = (source_confidence > source_threshold) & (
+                target_confidence > target_threshold
+            )
+        if np.count_nonzero(mask) < 5:
+            raise RuntimeError(
+                "SL(4) alignment requires at least five confidence-filtered points"
+            )
+        # Geometric mean treats the two observations symmetrically. The IRLS
+        # solver normalizes these raw VGGT confidence values before using them.
+        confidence = np.sqrt(
+            np.clip(source_confidence[mask], 0.0, None)
+            * np.clip(target_confidence[mask], 0.0, None)
+        )
+        return mask, confidence
 
     def set_point_cloud(self, points_in_world_frame, points_colors, name, point_size):
         if self.gradio_mode:
@@ -310,12 +392,16 @@ class Solver:
             prior_pcd_num = self.map.get_largest_key()
             prior_submap = self.map.get_submap(prior_pcd_num)
 
+            # 获取当前窗口点云
             current_pts = world_points[0,...].reshape(-1, 3)
         
-            # TODO conf should be using the threshold in its own submap
-            good_mask = self.prior_conf > prior_submap.get_conf_threshold() * (conf[0,...,:].reshape(-1) > prior_submap.get_conf_threshold())
+            current_confidence = conf[0, ...].reshape(-1)
             
             if self.use_sim3:
+                # 保留原版 Sim(3) 兼容路径的对应点选择，本次实验只改变 SL(4)。
+                good_mask = self.prior_conf > prior_submap.get_conf_threshold() * (
+                    current_confidence > prior_submap.get_conf_threshold()
+                )
                 # Note we still use H and not T in variable names so we can share code with the Sim3 case, 
                 # and SIM3 and SE3 are also subsets of the SL4 group
                 R_temp = prior_submap.poses[prior_submap.get_last_non_loop_frame_index()][0:3,0:3]
@@ -334,8 +420,28 @@ class Solver:
                 world_points *= scale_factor
                 cam_to_world[:, 0:3, 3] *= scale_factor
             else:
-                H_relative = ransac_projective(current_pts[good_mask], self.prior_pcd[good_mask])
+                # SL(4) 的两个观测都必须通过各自阈值。RANSAC 与
+                # RANSAC+IRLS 共用同一批点，保证 A/B 只比较精修方法。
+                current_confidence_threshold = np.percentile(
+                    conf,
+                    self.init_conf_threshold,
+                )
+                good_mask, projective_confidence = (
+                    self._projective_correspondence_mask(
+                        current_confidence,
+                        self.prior_conf,
+                        current_confidence_threshold,
+                        prior_submap.get_conf_threshold(),
+                    )
+                )
+                # 使用RANSAC求解当前窗口点云和prior点云之间的单应矩阵(SL4 + RANSAC)(有置信度的硬过滤)
+                H_relative = self._estimate_projective_transform(
+                    current_pts[good_mask],
+                    self.prior_pcd[good_mask],
+                    projective_confidence,
+                )
             
+            # 将单应矩阵(SL4)应用到当前窗口的点云上，看看和prior点云对齐的如何
             H_w_submap = prior_submap.get_reference_homography() @ H_relative
 
             # Visualize the point clouds
@@ -381,9 +487,27 @@ class Solver:
                 pose_world_query = gtsam.Pose3(pose_world_query)
                 H_relative_lc = pose_world_detected.between(pose_world_query).matrix()
             else:
-                points_world_detected = self.map.get_submap(loop.detected_submap_id).get_frame_pointcloud(loop.detected_submap_frame).reshape(-1, 3)
+                detected_submap = self.map.get_submap(loop.detected_submap_id)
+                points_world_detected = detected_submap.get_frame_pointcloud(loop.detected_submap_frame).reshape(-1, 3)
                 points_world_query = self.current_working_submap.get_frame_pointcloud(loop_index).reshape(-1, 3)
-                H_relative_lc = ransac_projective(points_world_query, points_world_detected)
+                query_confidence = self.current_working_submap.conf[
+                    loop_index
+                ].reshape(-1)
+                detected_confidence = detected_submap.conf[
+                    loop.detected_submap_frame
+                ].reshape(-1)
+                loop_mask, loop_confidence = self._projective_correspondence_mask(
+                    query_confidence,
+                    detected_confidence,
+                    self.current_working_submap.get_conf_threshold(),
+                    detected_submap.get_conf_threshold(),
+                    legacy_unfiltered=True,
+                )
+                H_relative_lc = self._estimate_projective_transform(
+                    points_world_query[loop_mask],
+                    points_world_detected[loop_mask],
+                    loop_confidence,
+                )
 
 
             self.graph.add_between_factor(loop.detected_submap_id, loop.query_submap_id, H_relative_lc, self.graph.relative_noise)

@@ -36,6 +36,11 @@ parser.add_argument("--submap_size", type=int, default=16, help="Number of new f
 parser.add_argument("--overlapping_window_size", type=int, default=1, help="ONLY DEFAULT OF 1 SUPPORTED RIGHT NOW. Number of overlapping frames, which are used in SL(4) estimation")
 parser.add_argument("--downsample_factor", type=int, default=1, help="Factor to reduce image size by 1/N")
 parser.add_argument("--max_loops", type=int, default=1, help="Maximum number of loop closures per submap")
+parser.add_argument("--projective_solver", choices=("ransac", "ransac_irls"), default="ransac", help="SL(4) relative-transform estimator; ransac preserves the baseline path")
+parser.add_argument("--projective_confidence_mode", choices=("legacy", "joint"), default="legacy", help="legacy preserves original point filtering; joint requires both observations to pass their own confidence thresholds")
+parser.add_argument("--projective_threshold", type=float, default=0.01, help="3D correspondence inlier threshold used by RANSAC and Tukey IRLS")
+parser.add_argument("--projective_seed", type=int, default=None, help="Optional random seed for reproducible projective RANSAC sampling")
+parser.add_argument("--irls_max_iterations", type=int, default=10, help="Maximum IRLS refinement iterations when projective_solver=ransac_irls")
 parser.add_argument("--min_disparity", type=float, default=50, help="Minimum disparity to generate a new keyframe")
 parser.add_argument("--use_point_map", action="store_true", help="Use point map instead of depth-based points")
 parser.add_argument("--conf_threshold", type=float, default=25.0, help="Initial percentage of low-confidence points to filter out")
@@ -95,6 +100,11 @@ def main():
         salad_checkpoint=Path(args.salad_checkpoint),
         dinov2_source=Path(args.dinov2_source),
         dinov2_weight=Path(args.dinov2_weight),
+        projective_solver=args.projective_solver,
+        projective_confidence_mode=args.projective_confidence_mode,
+        projective_threshold=args.projective_threshold,
+        projective_seed=args.projective_seed,
+        irls_max_iterations=args.irls_max_iterations,
     )
 
     print("Initializing and loading VGGT model...")
